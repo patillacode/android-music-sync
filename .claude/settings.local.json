@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(test:*)",
+      "Bash(wc:*)",
+      "WebSearch",
+      "Bash(python3:*)",
+      "Bash(bash -n:*)",
+      "Bash(./apple_music_export.py:*)",
+      "Bash(cat:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
