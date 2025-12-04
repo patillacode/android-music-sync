@@ -36,5 +36,11 @@ Icon
 # Music Library file
 Library.xml
 
+# Virtual environment
+.venv/
+
+# User config directory (in project)
+config/
+
 # CC
 .claude/
