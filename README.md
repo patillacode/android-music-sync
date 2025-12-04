@@ -5,6 +5,7 @@ Clean, incremental sync solution for exporting Apple Music libraries to Android 
 ## Features
 
 - **Incremental sync** - Only exports new/modified files
+- **Playlist filtering** - Export only specific playlists and their tracks
 - **Dry-run mode** - Preview exports without copying files
 - **Progress tracking** - Real-time progress bars with speed/ETA
 - **Safety checks** - Disk space validation, confirmation prompts
@@ -85,6 +86,9 @@ Android /Internal Storage/Music/
 | `./sync_to_android.sh` | Run full export |
 | `./sync_to_android.sh --dry-run` | Preview without copying files |
 | `./sync_to_android.sh --clean` | Delete output and re-export everything |
+| `./sync_to_android.sh --list-playlists` | List all available playlists |
+| `./sync_to_android.sh --playlists "Gym,Running"` | Export only specific playlists |
+| `./sync_to_android.sh --playlist-file playlists.txt` | Use playlist config file |
 | `./apple_music_export.py --help` | Show all options |
 
 ### Common Workflows
@@ -108,14 +112,99 @@ Android /Internal Storage/Music/
 # 3. Transfer only the changed files via LocalSend
 ```
 
+**Selective playlist export:**
+```bash
+# Export specific playlists only (saves space!)
+./sync_to_android.sh --playlists "Gym Workout,Running Mix"
+
+# Use wildcards
+./sync_to_android.sh --playlists "Workout*,Gym*"
+
+# Create a playlist file for reusable selections
+echo "Gym Workout" > playlists.txt
+echo "Running Mix" >> playlists.txt
+echo "Chill*" >> playlists.txt  # wildcards supported
+./sync_to_android.sh --playlist-file playlists.txt
+
+# Dry-run to preview
+./sync_to_android.sh --dry-run --playlist-file playlists.txt
+```
+
 **Direct Python usage:**
 ```bash
 # Custom paths
 python3 apple_music_export.py --library Library.xml --output ~/exports
 
+# Export specific playlists
+python3 apple_music_export.py --playlists "Gym,Running"
+
 # Dry-run
 python3 apple_music_export.py --dry-run
 ```
+
+## Playlist Filtering
+
+Export only the playlists you want on your Android device to save space and transfer time.
+
+### Quick Start
+
+**Step 1: Discover available playlists**
+```bash
+./sync_to_android.sh --list-playlists
+```
+
+**Step 2: Export specific playlists**
+
+Command-line (one-time selections):
+```bash
+./sync_to_android.sh --playlists "Gym Workout,Running Mix,Chill Vibes"
+```
+
+Config file (reusable selections):
+```bash
+# Create playlists.txt
+cat > playlists.txt << EOF
+# My favorite workout playlists
+Gym Workout
+Running Mix
+Workout*
+
+# Chill music
+Chill Vibes
+Lofi*
+EOF
+
+# Use it
+./sync_to_android.sh --playlist-file playlists.txt
+```
+
+### How It Works
+
+When playlist filtering is active:
+- **ONLY** tracks in selected playlists are exported (saves disk space)
+- **ONLY** matching playlists are generated as M3U files
+- Wildcards (`*`, `?`) are supported for pattern matching
+- Case-insensitive matching
+
+**Example:** If you have a 20GB library but only export 3 workout playlists, you might only transfer 2-3GB instead.
+
+### Playlist File Format
+
+Simple text file, one playlist name per line:
+```txt
+# Lines starting with # are comments
+# Wildcards are supported: * matches any characters, ? matches one character
+
+Gym Workout
+Running Mix
+Workout*        # Matches "Workout 2024", "Workout Favorites", etc.
+Chill*          # Matches "Chill Vibes", "Chillstep", etc.
+```
+
+**Tips:**
+- Use `--dry-run` to preview which playlists match your patterns
+- Command-line `--playlists` takes precedence over `--playlist-file`
+- If neither option is specified, ALL playlists are exported (default behavior)
 
 ## Configuration
 

@@ -12,7 +12,7 @@ import plistlib
 import shutil
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import unquote
 
 
@@ -147,6 +147,62 @@ class AppleMusicExporter:
 
         return selected_track_ids
 
+    def list_playlists(self) -> None:
+        """List all available playlists in the library."""
+        print("Reading Apple Music library...")
+
+        # Validate library file exists
+        if not self.library_path.exists():
+            raise FileNotFoundError(
+                f"Library file not found: {self.library_path}\n\n"
+                f"📋 SETUP REQUIRED:\n"
+                f"   1. Open Apple Music app\n"
+                f"   2. Menu: File → Library → Export Library...\n"
+                f"   3. Save the file as 'Library.xml'\n\n"
+                f"📁 RECOMMENDED LOCATION (Most Convenient):\n"
+                f"   Save to the project directory:\n"
+                f"   {Path.cwd() / 'Library.xml'}\n"
+            )
+
+        # Parse library
+        try:
+            with open(self.library_path, "rb") as f:
+                library = plistlib.load(f)
+        except Exception as e:
+            raise ValueError(
+                f"Failed to parse Library.xml: {e}\nFile may be corrupted or not valid XML."
+            )
+
+        playlists = library.get("Playlists", [])
+
+        # Filter to user playlists only (exclude Distinguished/system playlists)
+        user_playlists = [
+            p
+            for p in playlists
+            if p.get("Distinguished Kind") is None and p.get("Playlist Items")
+        ]
+
+        print(f"\n{'=' * 60}")
+        print(f"Available Playlists ({len(user_playlists)} total)")
+        print(f"{'=' * 60}\n")
+
+        for idx, playlist in enumerate(
+            sorted(user_playlists, key=lambda p: p.get("Name", "").lower()), 1
+        ):
+            name = playlist.get("Name", "Untitled")
+            track_count = len(playlist.get("Playlist Items", []))
+            print(f"  {idx:3}. {name} ({track_count} tracks)")
+
+        print(f"\n{'=' * 60}")
+        print("\nUsage examples:")
+        print("  # Export specific playlists:")
+        print(
+            f'  ./sync_to_android.sh --playlists "{user_playlists[0].get("Name", "Example")}"'
+        )
+        print("\n  # Use wildcards:")
+        print('  ./sync_to_android.sh --playlists "music*"')
+        print(f"\n{'=' * 60}")
+
     def _get_disk_space(self) -> Tuple[int, int]:
         """Get available and total disk space in bytes."""
         stat = os.statvfs(
@@ -233,7 +289,17 @@ class AppleMusicExporter:
         print(f"\n{'=' * 60}")
         print("DRY-RUN SUMMARY (No files will be copied)")
         print(f"{'=' * 60}")
-        print("Library:")
+
+        # Show playlist filter info if active
+        if self.include_playlists:
+            print("\n📋 Playlist Filter:")
+            print(f"  - Patterns: {', '.join(self.include_playlists)}")
+            if self.selected_track_ids:
+                print(
+                    f"  - Tracks in selected playlists: {len(self.selected_track_ids)}"
+                )
+
+        print("\nLibrary:")
         print(f"  - Total tracks: {self.stats['total_tracks']}")
         print(f"  - Total playlists: {self.stats['total_playlists']}")
         print(f"  - Total size: {self._format_size(self.stats['total_size'])}")
@@ -549,9 +615,15 @@ Examples:
   %(prog)s --library ~/custom/Library.xml --output ~/exports
         """,
     )
+    # Default to ./Library.xml if it exists, otherwise ~/Music/Music/Library.xml
+    default_library = (
+        "./Library.xml"
+        if Path("./Library.xml").exists()
+        else "~/Music/Music/Library.xml"
+    )
     parser.add_argument(
         "--library",
-        default="~/Music/Music/Library.xml",
+        default=default_library,
         help=(
             "Path to Apple Music Library.xml file. "
             "Export via: Apple Music → File → Library → Export Library. "
@@ -567,11 +639,77 @@ Examples:
     parser.add_argument(
         "--dry-run", action="store_true", help="Preview export without copying files"
     )
+    parser.add_argument(
+        "--playlists",
+        help=(
+            "Comma-separated list of playlist names to export. "
+            "Supports wildcards (e.g., 'Workout*'). "
+            "If specified, ONLY these playlists and their tracks will be exported. "
+            "Example: --playlists 'Gym,Running,Chill*'"
+        ),
+    )
+    parser.add_argument(
+        "--playlist-file",
+        help=(
+            "Path to text file containing playlist names (one per line). "
+            "Supports wildcards and comments (lines starting with #). "
+            "Command-line --playlists takes precedence if both specified. "
+            "Example: --playlist-file playlists.txt"
+        ),
+    )
+    parser.add_argument(
+        "--list-playlists",
+        action="store_true",
+        help=(
+            "List all available playlists in the library and exit. "
+            "Useful for discovering playlist names before filtering. "
+            "Does not perform any export."
+        ),
+    )
 
     args = parser.parse_args()
 
+    # Handle --list-playlists (early exit, no export needed)
+    if args.list_playlists:
+        try:
+            # Create minimal exporter just to list playlists
+            exporter = AppleMusicExporter(
+                args.library,
+                args.output,
+                dry_run=True,  # Not used, but required
+            )
+            exporter.list_playlists()
+            exit(0)
+        except FileNotFoundError as e:
+            print(f"\n❌ Error: {e}")
+            exit(1)
+        except ValueError as e:
+            print(f"\n❌ Error: {e}")
+            exit(1)
+        except Exception as e:
+            print(f"\n❌ Unexpected error: {e}")
+            import traceback
+
+            traceback.print_exc()
+            exit(1)
+
+    # Parse playlist arguments
+    include_playlists = None
+    if args.playlists:
+        # Command-line takes precedence
+        include_playlists = [p.strip() for p in args.playlists.split(",")]
+    elif args.playlist_file:
+        # Will be loaded by AppleMusicExporter
+        pass
+
     try:
-        exporter = AppleMusicExporter(args.library, args.output, dry_run=args.dry_run)
+        exporter = AppleMusicExporter(
+            args.library,
+            args.output,
+            dry_run=args.dry_run,
+            include_playlists=include_playlists,
+            playlist_file=args.playlist_file if not args.playlists else None,
+        )
         exporter.export()
     except FileNotFoundError as e:
         print(f"\n❌ Error: {e}")

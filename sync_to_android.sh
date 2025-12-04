@@ -78,14 +78,42 @@ main() {
 
     # Handle flags
     DRY_RUN_FLAG=""
-    if [ "$1" == "--clean" ]; then
-        clean_output
-        echo ""
-    elif [ "$1" == "--dry-run" ]; then
-        DRY_RUN_FLAG="--dry-run"
-        print_warning "DRY-RUN MODE: No files will be copied"
-        echo ""
-    fi
+    PLAYLIST_ARGS=""
+
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --clean)
+                clean_output
+                echo ""
+                shift
+                ;;
+            --dry-run)
+                DRY_RUN_FLAG="--dry-run"
+                print_warning "DRY-RUN MODE: No files will be copied"
+                echo ""
+                shift
+                ;;
+            --playlists)
+                PLAYLIST_ARGS="$PLAYLIST_ARGS --playlists \"$2\""
+                shift 2
+                ;;
+            --playlist-file)
+                PLAYLIST_ARGS="$PLAYLIST_ARGS --playlist-file \"$2\""
+                shift 2
+                ;;
+            --list-playlists)
+                # List playlists and exit (skip pre-flight checks)
+                check_python_script
+                python3 "$PYTHON_SCRIPT" --library "$LIBRARY_PATH" --list-playlists
+                exit $?
+                ;;
+            *)
+                print_error "Unknown option: $1"
+                echo "Usage: $0 [--clean|--dry-run|--list-playlists] [--playlists 'name1,name2'] [--playlist-file file.txt]"
+                exit 1
+                ;;
+        esac
+    done
 
     # Pre-flight checks
     print_header "Running pre-flight checks..."
@@ -98,7 +126,7 @@ main() {
     print_header "Exporting music library..."
     echo ""
 
-    if python3 "$PYTHON_SCRIPT" --library "$LIBRARY_PATH" --output "$OUTPUT_DIR" $DRY_RUN_FLAG; then
+    if eval python3 \"$PYTHON_SCRIPT\" --library \"$LIBRARY_PATH\" --output \"$OUTPUT_DIR\" $DRY_RUN_FLAG $PLAYLIST_ARGS; then
         echo ""
         print_success "Export completed successfully!"
     else
