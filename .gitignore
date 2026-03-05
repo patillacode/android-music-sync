@@ -36,5 +36,8 @@ Icon
 # Music Library file
 Library.xml
 
+# Playlist selection config (user-specific, not tracked)
+playlists.txt
+
 # CC
 .claude/

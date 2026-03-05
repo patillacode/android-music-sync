@@ -1,0 +1,28 @@
+# playlists.txt — Playlist selection config for sync_to_android.sh
+#
+# Usage:
+#   cp playlists.txt.example playlists.txt
+#   # Edit playlists.txt with your selections
+#   ./sync_to_android.sh --playlist-file playlists.txt
+#
+# Rules:
+#   - One playlist name per line
+#   - Lines starting with # are comments (ignored)
+#   - Blank lines are ignored
+#   - Wildcards supported: * matches any characters
+#   - Matching is case-insensitive
+#
+# Examples:
+
+# Exact names
+My Favorites
+Road Trip
+
+# Wildcard: matches "Chill Vibes", "Chill House", "Chill Evening", etc.
+Chill*
+
+# Wildcard: matches any playlist containing "workout"
+*Workout*
+
+# Wildcard: matches "2023 Hits", "2024 Hits", etc.
+20* Hits

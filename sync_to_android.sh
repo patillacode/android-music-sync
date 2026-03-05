@@ -79,12 +79,12 @@ main() {
     # Handle flags
     DRY_RUN_FLAG=""
     PLAYLIST_ARGS=""
+    CLEAN_REQUESTED=0
 
     while [[ $# -gt 0 ]]; do
         case $1 in
             --clean)
-                clean_output
-                echo ""
+                CLEAN_REQUESTED=1
                 shift
                 ;;
             --dry-run)
@@ -114,6 +114,17 @@ main() {
                 ;;
         esac
     done
+
+    # Apply --clean only if not a dry-run
+    if [ "$CLEAN_REQUESTED" -eq 1 ]; then
+        if [ -n "$DRY_RUN_FLAG" ]; then
+            print_warning "--clean ignored in dry-run mode (output directory preserved)"
+            echo ""
+        else
+            clean_output
+            echo ""
+        fi
+    fi
 
     # Pre-flight checks
     print_header "Running pre-flight checks..."

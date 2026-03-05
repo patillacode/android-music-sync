@@ -266,16 +266,28 @@ class AppleMusicExporter:
         self, tracks: Dict[str, Any], playlists: List[Any]
     ) -> None:
         """Calculate total export size."""
-        self.stats["total_tracks"] = len(tracks)
+        # If playlist filtering is active, count only tracks in selected playlists
+        if self.selected_track_ids:
+            filtered_tracks = {
+                tid: t for tid, t in tracks.items() if tid in self.selected_track_ids
+            }
+            self.stats["total_tracks"] = len(filtered_tracks)
+            tracks_to_size = filtered_tracks
+        else:
+            self.stats["total_tracks"] = len(tracks)
+            tracks_to_size = tracks
+
         self.stats["total_playlists"] = len(
             [
                 p
                 for p in playlists
-                if p.get("Distinguished Kind") is None and p.get("Playlist Items")
+                if p.get("Distinguished Kind") is None
+                and p.get("Playlist Items")
+                and self._should_export_playlist(p.get("Name", ""))
             ]
         )
 
-        for track in tracks.values():
+        for track in tracks_to_size.values():
             location = track.get("Location")
             if location:
                 source_path = self._parse_location(location)
@@ -389,8 +401,8 @@ class AppleMusicExporter:
             print(f"Export size: {self._format_size(required)}")
             print(f"Available space: {self._format_size(available)}")
             print(f"Output directory: {self.output_dir}")
-            response = input("\nProceed with export? (y/N): ").strip().lower()
-            if response != "y":
+            response = input("\nProceed with export? (yes/N): ").strip().lower()
+            if response not in ("y", "yes"):
                 print("Export cancelled.")
                 return
             print()
